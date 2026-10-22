@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: iapi
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-service
+  namespace: iapi
+spec:
+  selector:
+    app: registry-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: iapi
+spec:
+  selector:
+    app: gateway-service
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-collector
+  namespace: iapi
+spec:
+  selector:
+    app: metrics-collector
+  ports:
+    - port: 8083
+      targetPort: 8083
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: iapi
+spec:
+  selector:
+    app: analytics-service
+  ports:
+    - port: 8084
+      targetPort: 8084
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-service
+  namespace: iapi
+spec:
+  selector:
+    app: ml-service
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-service
+  namespace: iapi
+spec:
+  selector:
+    app: dashboard-service
+  ports:
+    - port: 8085
+      targetPort: 8085

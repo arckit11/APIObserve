@@ -1,0 +1,283 @@
+# Local dev stack for the AI-Powered API Performance Analytics Platform.
+# Application services (gateway, auth, registry, metrics-collector, analytics,
+# dashboard, ml-service) will be added in later phases; Phase 0 only stands up
+# the infrastructure needed for both subsystems.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: iapi-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-api_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-api_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-api_analytics} -d ${POSTGRES_DB:-api_analytics}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [iapi-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: iapi-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [iapi-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: iapi-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [iapi-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: iapi-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      # 9092 = in-network listener for services on the compose network
+      # 29092 = host listener for tools running on your laptop
+      - "9093:9092"
+      - "29093:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [iapi-net]
+
+  kafka-init:
+    # One-shot container that creates the platform's topics with sane defaults.
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: iapi-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      set -eu
+      BS=kafka:9092
+      create() { kafka-topics --bootstrap-server $$BS --create --if-not-exists --topic $$1 --partitions $$2 --replication-factor 1; }
+      create api-logs 6
+      create api-logs-dlq 1
+      create metrics 3
+      create alerts 3
+      create predictions 3
+      create service-health 1
+      kafka-topics --bootstrap-server $$BS --list
+      "
+    networks: [iapi-net]
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: iapi-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8091:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks: [iapi-net]
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend-service.Dockerfile
+      args:
+        SERVICE_MODULE: auth-service
+    container_name: iapi-auth-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT_AUTH:-8081}:8081"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-api_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-api_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+      JWT_SECRET: ${JWT_SECRET:-replace_with_a_long_random_string_at_least_32_chars}
+    networks: [iapi-net]
+
+  registry-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend-service.Dockerfile
+      args:
+        SERVICE_MODULE: registry-service
+    container_name: iapi-registry-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT_REGISTRY:-8082}:8082"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-api_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-api_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+    networks: [iapi-net]
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend-service.Dockerfile
+      args:
+        SERVICE_MODULE: gateway-service
+    container_name: iapi-gateway-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    ports:
+      - "${PORT_GATEWAY:-8080}:8080"
+    environment:
+      REGISTRY_HOST: registry-service
+      REGISTRY_PORT: 8082
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-replace_with_a_long_random_string_at_least_32_chars}
+    networks: [iapi-net]
+
+  metrics-collector:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend-service.Dockerfile
+      args:
+        SERVICE_MODULE: metrics-collector
+    container_name: iapi-metrics-collector
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PORT_METRICS_COLLECTOR:-8083}:8083"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-api_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-api_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    networks: [iapi-net]
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend-service.Dockerfile
+      args:
+        SERVICE_MODULE: analytics-service
+    container_name: iapi-analytics-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${PORT_ANALYTICS:-8084}:8084"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-api_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-api_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [iapi-net]
+
+  ml-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/ml-service.Dockerfile
+    container_name: iapi-ml-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${PORT_ML:-8000}:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-api_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-api_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_locally}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ML_MODEL_DIR: /app/models
+    networks: [iapi-net]
+
+  dashboard-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend-service.Dockerfile
+      args:
+        SERVICE_MODULE: dashboard-service
+    container_name: iapi-dashboard-service
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      analytics-service:
+        condition: service_started
+      ml-service:
+        condition: service_started
+    ports:
+      - "${PORT_DASHBOARD:-8085}:8085"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ML_HOST: ml-service
+      PORT_ML: 8000
+      ANALYTICS_HOST: analytics-service
+      PORT_ANALYTICS: 8084
+      DASHBOARD_ML_TIMEOUT_MS: 2000
+    networks: [iapi-net]
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  iapi-net:
+    driver: bridge

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iapi-config
+  namespace: iapi
+data:
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "api_analytics"
+  POSTGRES_USER: "api_analytics"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  PORT_GATEWAY: "8080"
+  PORT_AUTH: "8081"
+  PORT_REGISTRY: "8082"
+  PORT_METRICS_COLLECTOR: "8083"
+  PORT_ANALYTICS: "8084"
+  PORT_DASHBOARD: "8085"
+  PORT_ML: "8000"
+  ML_MODEL_DIR: "/app/models"
