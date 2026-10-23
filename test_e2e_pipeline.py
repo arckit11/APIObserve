@@ -7,6 +7,19 @@ Demonstrates the complete progression of a request across the stack:
 4. ML inference using the trained anomaly detection and health scoring models.
 5. Circuit-breaker cached dashboard prediction delivery.
 """
+import os
+import sys
+from pathlib import Path
+
+# Ensure ml-service is on sys.path and default to host docker ports
+ml_service_dir = Path(__file__).resolve().parent / "ml-service"
+if str(ml_service_dir) not in sys.path:
+    sys.path.insert(0, str(ml_service_dir))
+
+os.environ.setdefault("POSTGRES_HOST", "localhost")
+os.environ.setdefault("POSTGRES_PORT", "5435")
+os.environ.setdefault("KAFKA_BOOTSTRAP_SERVERS", "localhost:29093")
+
 from datetime import UTC, datetime, timedelta
 import hashlib
 import json

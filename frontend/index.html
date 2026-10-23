@@ -2,58 +2,317 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>API Performance Analytics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex Observability — AI API Telemetry & Intelligence Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <header>
-    <h1>API Performance Analytics</h1>
-    <div id="auth-panel">
-      <input id="username" placeholder="username" value="admin" />
-      <input id="password" type="password" placeholder="password" value="admin1234!" />
-      <button id="login">Log in</button>
-      <span id="auth-status" class="pill">signed out</span>
+  <!-- Ambient background glow effects -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Main Navigation Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span class="live-beacon"></span>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">APEX OBSERVABILITY</div>
+        <div class="brand-subtitle">AI Telemetry & Predictive Operations</div>
+      </div>
+    </div>
+
+    <!-- Center Status Bar / Telemetry Stream Pill -->
+    <div class="stream-status">
+      <span class="pulse-dot"></span>
+      <span class="stream-label">STREAM ACTIVE</span>
+      <span class="divider">|</span>
+      <span id="gateway-indicator" class="stream-gw">Gateway: Connected</span>
+    </div>
+
+    <!-- Header Controls & Auth Panel -->
+    <div class="header-actions">
+      <!-- Auto Refresh Controller -->
+      <div class="auto-refresh-control">
+        <label for="auto-refresh-select" class="control-label">Auto-sync:</label>
+        <select id="auto-refresh-select" class="custom-select">
+          <option value="0">Manual</option>
+          <option value="5">5s</option>
+          <option value="10" selected>10s</option>
+          <option value="30">30s</option>
+          <option value="60">60s</option>
+        </select>
+        <div id="refresh-timer-bar" class="timer-bar" title="Time until next auto-sync"></div>
+      </div>
+
+      <button id="refresh-all" class="btn btn-primary" title="Trigger instant telemetry refresh">
+        <svg class="spin-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        <span>Refresh All</span>
+      </button>
+
+      <!-- Auth Controls -->
+      <div id="auth-panel" class="auth-panel">
+        <div id="auth-signed-out" class="auth-form-inline">
+          <input id="username" placeholder="username" value="admin" class="input-sm" />
+          <input id="password" type="password" placeholder="password" value="admin1234!" class="input-sm" />
+          <button id="login" class="btn btn-accent btn-sm">Log in</button>
+        </div>
+        <div id="auth-signed-in" class="auth-user-badge hidden">
+          <div class="user-avatar">ADM</div>
+          <div class="user-info">
+            <span id="auth-user-name" class="user-name">admin</span>
+            <span class="user-role">SUPER ADMIN</span>
+          </div>
+          <button id="logout" class="btn btn-ghost btn-xs" title="Sign out of session">Sign out</button>
+        </div>
+        <span id="auth-status" class="pill">signed out</span>
+      </div>
     </div>
   </header>
 
-  <main>
-    <section id="health-section" class="card">
-      <h2>Service health <button data-refresh="health" class="refresh">↻</button></h2>
-      <div id="health" class="grid"></div>
+  <!-- Executive KPI Hero Ribbon -->
+  <section class="kpi-banner">
+    <div class="kpi-card" id="kpi-health">
+      <div class="kpi-header">
+        <span class="kpi-title">Average Fleet Health</span>
+        <span class="kpi-icon health-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-metric" id="kpi-health-value">--</div>
+        <div class="kpi-subtext" id="kpi-health-sub">Analyzing telemetry...</div>
+      </div>
+      <div class="kpi-bar-track">
+        <div class="kpi-bar-fill health-bar" id="kpi-health-bar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card" id="kpi-traffic">
+      <div class="kpi-header">
+        <span class="kpi-title">Total Throughput</span>
+        <span class="kpi-icon traffic-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-metric" id="kpi-traffic-value">-- RPM</div>
+        <div class="kpi-subtext" id="kpi-traffic-sub">60m Forecast: -- RPM</div>
+      </div>
+      <div class="kpi-bar-track">
+        <div class="kpi-bar-fill traffic-bar" id="kpi-traffic-bar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card" id="kpi-ml">
+      <div class="kpi-header">
+        <span class="kpi-title">ML Anomaly Engine</span>
+        <span class="kpi-icon ml-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.93V17a1 1 0 0 1-2 0v-.07A7.003 7.003 0 0 1 5.07 11H5a1 1 0 0 1 0-2h.07A7.003 7.003 0 0 1 11 3.07V3a1 1 0 0 1 2 0v.07A7.003 7.003 0 0 1 18.93 9H19a1 1 0 0 1 0 2h-.07A7.003 7.003 0 0 1 13 16.93z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-metric" id="kpi-anomaly-value">0 Anomalies</div>
+        <div class="kpi-subtext" id="kpi-anomaly-sub">IsolationForest &amp; XGBoost active</div>
+      </div>
+      <div class="kpi-bar-track">
+        <div class="kpi-bar-fill ml-bar" id="kpi-ml-bar" style="width: 100%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card" id="kpi-alerts">
+      <div class="kpi-header">
+        <span class="kpi-title">Active Incidents</span>
+        <span class="kpi-icon alert-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-metric" id="kpi-alerts-value">--</div>
+        <div class="kpi-subtext" id="kpi-alerts-sub">AI Priority Classification</div>
+      </div>
+      <div class="kpi-badges" id="kpi-alert-badges">
+        <!-- Badges dynamically injected -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation Filters & Search Toolbar -->
+  <div class="toolbar">
+    <div class="filter-tabs">
+      <button class="tab-btn active" data-tab="all">All Modules</button>
+      <button class="tab-btn" data-tab="health">Service Health</button>
+      <button class="tab-btn" data-tab="traffic">Traffic &amp; Latency</button>
+      <button class="tab-btn" data-tab="predictions">ML Predictions</button>
+      <button class="tab-btn" data-tab="alerts">Incidents &amp; Alerts</button>
+    </div>
+
+    <div class="toolbar-right">
+      <div class="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input id="service-filter" type="text" placeholder="Filter services or metrics..." />
+      </div>
+      <div class="demo-actions">
+        <button id="btn-seed-alerts" class="btn btn-outline btn-xs" title="Seed realistic demo alerts into database">
+          <span>+ Seed Demo Alerts</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Main Grid -->
+  <main class="dashboard-content">
+    <!-- SECTION 1: Service Health Cards -->
+    <section id="health-section" class="card dashboard-section" data-section="health">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-tag">OVERVIEW</span>
+          <h2>Service Fleet Health &amp; Telemetry Decomposition</h2>
+        </div>
+        <div class="card-actions">
+          <span class="badge badge-subtle" id="health-count-badge">0 Monitored</span>
+          <button data-refresh="health" class="refresh btn btn-icon" title="Refresh health">↻</button>
+        </div>
+      </div>
+      <div id="health" class="grid health-grid">
+        <!-- Dynamically rendered service cards -->
+      </div>
     </section>
 
-    <section id="traffic-section" class="card">
-      <h2>
-        Traffic — current vs forecast (60 min)
-        <button data-refresh="traffic" class="refresh">↻</button>
-      </h2>
-      <table id="traffic-table"></table>
+    <!-- SECTION 2 & 3: Traffic & Latency side-by-side or stacked -->
+    <div class="grid-2-col" data-section="traffic">
+      <!-- Traffic Card -->
+      <section id="traffic-section" class="card dashboard-section">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-tag">TRAFFIC</span>
+            <h2>Throughput &amp; 60-Min AI Forecast</h2>
+          </div>
+          <div class="card-actions">
+            <span class="model-badge">ARIMA/LSTM trained</span>
+            <button data-refresh="traffic" class="refresh btn btn-icon" title="Refresh traffic">↻</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="traffic-table" class="modern-table"></table>
+        </div>
+      </section>
+
+      <!-- Latency Card -->
+      <section id="latency-section" class="card dashboard-section">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-tag">LATENCY</span>
+            <h2>Response Times (Mean / P95 / P99)</h2>
+          </div>
+          <div class="card-actions">
+            <button data-refresh="latency" class="refresh btn btn-icon" title="Refresh latency">↻</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="latency-table" class="modern-table"></table>
+        </div>
+      </section>
+    </div>
+
+    <!-- SECTION 4: ML Predictions & Risk Analysis -->
+    <section id="predictions-section" class="card dashboard-section" data-section="predictions">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-tag">INTELLIGENCE</span>
+          <h2>Predictive Failure Probability &amp; Anomaly Detection</h2>
+        </div>
+        <div class="card-actions">
+          <span class="model-badge">Isolation Forest + RF Classifier</span>
+          <button data-refresh="predictions" class="refresh btn btn-icon" title="Refresh predictions">↻</button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table id="predictions-table" class="modern-table"></table>
+      </div>
     </section>
 
-    <section id="latency-section" class="card">
-      <h2>Latency <button data-refresh="latency" class="refresh">↻</button></h2>
-      <table id="latency-table"></table>
-    </section>
-
-    <section id="predictions-section" class="card">
-      <h2>Predictions <button data-refresh="predictions" class="refresh">↻</button></h2>
-      <table id="predictions-table"></table>
-    </section>
-
-    <section id="alerts-section" class="card">
-      <h2>Open alerts <button data-refresh="alerts" class="refresh">↻</button></h2>
-      <table id="alerts-table"></table>
+    <!-- SECTION 5: Incidents & Open Alerts -->
+    <section id="alerts-section" class="card dashboard-section" data-section="alerts">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-tag alert-tag">INCIDENTS</span>
+          <h2>Active Platform Alerts &amp; AI Triage Classification</h2>
+        </div>
+        <div class="card-actions">
+          <button data-refresh="alerts" class="refresh btn btn-icon" title="Refresh alerts">↻</button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table id="alerts-table" class="modern-table"></table>
+      </div>
     </section>
   </main>
 
-  <footer>
-    <span>Gateway:</span>
-    <input id="gateway-url" value="http://localhost:8080" size="24" />
-    <button id="refresh-all">Refresh all</button>
-    <span id="status" class="pill"></span>
+  <!-- Interactive Drawer / Modal for Contributing Factors or Detail View -->
+  <div id="detail-modal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">ML Feature Contribution Details</h3>
+        <button id="modal-close" class="modal-close-btn">&times;</button>
+      </div>
+      <div id="modal-content" class="modal-content">
+        <!-- Injected details -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Modern Persistent Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span class="footer-brand">APEX TELEMETRY v2.4</span>
+      <span class="footer-dot">•</span>
+      <span>Gateway:</span>
+      <div class="gateway-input-wrap">
+        <input id="gateway-url" value="http://localhost:8080" class="input-sm input-gw" />
+        <button id="test-gateway-btn" class="btn btn-ghost btn-xs" title="Ping Gateway">Ping</button>
+      </div>
+    </div>
+    <div class="footer-center">
+      <span id="status" class="pill">idle</span>
+    </div>
+    <div class="footer-right">
+      <span class="shortcut-hint"><kbd>R</kbd> to refresh</span>
+      <span class="footer-dot">•</span>
+      <span id="last-sync-time">Last sync: Just now</span>
+    </div>
   </footer>
 
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>

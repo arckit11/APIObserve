@@ -13,8 +13,8 @@ export PORT_ML=8006
 # Clean up any lingering demo service processes on target ports
 fuser -k 8080/tcp 8081/tcp 8082/tcp 8083/tcp 8084/tcp 8085/tcp 8006/tcp 5173/tcp 2>/dev/null || true
 
-echo "Step 2: Start infrastructure (Postgres, Redis, Kafka)"
-docker compose up -d postgres redis kafka zookeeper
+echo "Step 2: Start infrastructure (Postgres, Redis, Kafka, Kafka-UI)"
+docker compose up -d postgres redis kafka zookeeper kafka-ui
 docker compose up kafka-init
 
 echo "Step 3: Build backend"
@@ -54,20 +54,11 @@ sleep 20
 
 echo "Step 7: Seed live alerts"
 docker compose exec -T postgres psql -U api_analytics -d api_analytics <<'SQL'
-INSERT INTO metrics (service_id, window_start, window_end, window_size,
-request_count, rpm, response_time_mean, response_time_p95,
-response_time_p99, error_rate, success_rate, computed_at)
-VALUES
-('11111111-1111-1111-1111-111111111111',
-date_trunc('minute', NOW()), date_trunc('minute', NOW()) + interval '1 minute',
-'1m', 500, 500, 250, 800, 4500, 0.15, 0.85, NOW()),
-('33333333-3333-3333-3333-333333333333',
-date_trunc('minute', NOW()), date_trunc('minute', NOW()) + interval '1 minute',
-'1m', 200, 200, 400, 900, 2100, 0.18, 0.82, NOW())
-ON CONFLICT (service_id, window_size, window_start) DO UPDATE
-SET response_time_p99 = EXCLUDED.response_time_p99,
-error_rate = EXCLUDED.error_rate,
-computed_at = NOW();
+INSERT INTO alerts (id, service_id, triggering_metric, severity, priority, message, opened_at, closed_at)
+VALUES 
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'latency', 'critical', 'critical', 'P99 latency 4,500 ms exceeds threshold 2,000 ms', NOW(), NULL),
+(gen_random_uuid(), '33333333-3333-3333-3333-333333333333', 'error_rate', 'high', 'high', 'Error rate 18.0% exceeds threshold 10.0%', NOW(), NULL)
+ON CONFLICT DO NOTHING;
 SQL
 
 echo "Step 8: Start frontend"
