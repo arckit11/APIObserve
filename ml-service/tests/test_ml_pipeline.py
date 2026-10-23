@@ -106,7 +106,12 @@ def test_healthz_and_readyz_contain_model_modes():
         assert m in j["model_modes"]
 
 
-def test_admin_scheduler_endpoints():
+def test_admin_scheduler_endpoints(monkeypatch):
+    async def mock_retraining_job():
+        pass
+
+    monkeypatch.setattr("app.main.run_retraining_job", mock_retraining_job)
+
     r = client.get("/admin/scheduler", headers={"X-Admin-Key": "dev_admin_key_secret"})
     assert r.status_code == 200
     j = r.json()

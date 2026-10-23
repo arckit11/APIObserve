@@ -15,6 +15,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -54,6 +55,7 @@ public class ApiLogConsumer {
     private final Counter eventsDlq;
     private final Counter eventsTransientError;
 
+    @Autowired
     public ApiLogConsumer(ApiLogRepository repo,
                           ObjectMapper mapper,
                           KafkaTemplate<String, Object> kafka,

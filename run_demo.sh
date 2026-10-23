@@ -8,6 +8,14 @@ export REDIS_HOST=localhost REDIS_PORT=6381
 export KAFKA_BOOTSTRAP_SERVERS=localhost:29093
 export AUTH_HOST=localhost REGISTRY_HOST=localhost
 export ANALYTICS_HOST=localhost DASHBOARD_HOST=localhost ML_HOST=localhost
+export PORT_ML=8006
+
+# Clean up any lingering demo service processes on target ports
+fuser -k 8080/tcp 8081/tcp 8082/tcp 8083/tcp 8084/tcp 8085/tcp 8006/tcp 5173/tcp 2>/dev/null || true
+
+echo "Step 2: Start infrastructure (Postgres, Redis, Kafka)"
+docker compose up -d postgres redis kafka zookeeper
+docker compose up kafka-init
 
 echo "Step 3: Build backend"
 cd backend && mvn -DskipTests install && cd ..

@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
@@ -27,6 +28,7 @@ public class MlClient {
     private final String baseUrl;
     private final StringRedisTemplate redis;
 
+    @Autowired
     public MlClient(@Value("${ml.base-url:http://localhost:8000}") String baseUrl,
                     @Value("${ml.timeout-ms:2000}") int timeoutMs,
                     StringRedisTemplate redis) {

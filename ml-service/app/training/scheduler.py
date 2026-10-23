@@ -38,7 +38,18 @@ def run_retraining_sync(days: int = 30, modules: list[str] | None = None) -> lis
     start = end - timedelta(days=days)
 
     logger.info("Starting scheduled retraining for %s from %s to %s", target, start, end)
-    df = load_metrics(settings.pg_dsn, window_size="1m", since=start, until=end)
+    try:
+        df = load_metrics(settings.pg_dsn, window_size="1m", since=start, until=end)
+    except Exception as e:
+        logger.error("Failed to load metrics from DB for retraining: %s", e)
+        _last_run_info = {
+            "last_run_at": datetime.now(UTC).isoformat(),
+            "last_status": "failed_db_error",
+            "results": [],
+            "error": str(e),
+        }
+        return []
+
     if df.empty:
         logger.warning("No metrics found in DB; skipping retraining")
         _last_run_info = {

@@ -29,6 +29,7 @@ from app.training import registry
 
 FAILURE_P99_MS = 2000.0
 FAILURE_ERROR_RATE = 0.10
+FAILURE_MIN_CONSECUTIVE = 5
 # 30-min lead-up aligned with API schema horizon_minutes=30
 LOOKAHEAD_MIN = 30
 

@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -42,6 +43,7 @@ public class TelemetryFilter implements GlobalFilter, Ordered {
     private final io.micrometer.core.instrument.Counter publishedCounter;
     private final io.micrometer.core.instrument.Counter droppedCounter;
 
+    @Autowired
     public TelemetryFilter(KafkaTemplate<String, Object> kafka,
                            @Value("${kafka.topics.api-logs:" + Topics.API_LOGS + "}") String topic,
                            ServiceResolver serviceResolver,

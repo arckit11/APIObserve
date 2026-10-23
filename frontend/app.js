@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...children) => {
     else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
     else n.setAttribute(k, v);
   });
-  children.flat().forEach((c) => {
+  children.flat().filter((c) => c != null).forEach((c) => {
     n.append(c instanceof Node ? c : document.createTextNode(String(c)));
   });
   return n;
@@ -70,14 +70,15 @@ async function loadHealth() {
     const h = row.health || {};
     const status = (h.status || 'unknown').toLowerCase();
     const score = h.score != null ? Math.round(h.score) : '—';
-    root.append(
-      el('div', { class: 'service-card' },
-        el('h3', {}, short(row.service_id)),
-        el('div', { class: 'score' }, score),
-        el('span', { class: 'status ' + status }, status),
-        h.stale ? el('div', { class: 'spark' }, 'stale · fallback') : null,
-      ),
-    );
+    const cardChildren = [
+      el('h3', {}, short(row.service_id)),
+      el('div', { class: 'score' }, score),
+      el('span', { class: 'status ' + status }, status),
+    ];
+    if (h.stale) {
+      cardChildren.push(el('div', { class: 'spark' }, 'stale · fallback'));
+    }
+    root.append(el('div', { class: 'service-card' }, ...cardChildren));
   });
 }
 
